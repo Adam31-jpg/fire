@@ -4,7 +4,7 @@ import * as L from 'leaflet';
 @Component({
   selector: 'app-carte',
   templateUrl: './carte.component.html',
-  styleUrls: ['./carte.component.css']
+  styleUrls: ['./carte.component.scss']
 })
 export class CarteComponent implements OnInit {
 
