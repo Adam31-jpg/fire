@@ -22,7 +22,6 @@ export class CarteComponent implements OnInit {
 
     const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
     });
 
     tiles.addTo(this.map);
@@ -42,7 +41,7 @@ export class CarteComponent implements OnInit {
           iconUrl: 'assets/camion-icon.png',
           iconSize: [24, 24]
         })
-      }).addTo(this.map).bindPopup(`Robot pompier #${index}`);
+      }).addTo(this.map).bindPopup(`Réservoir d'eau: ${robot.waterCapacity}L`);
     });
   }
 
@@ -53,12 +52,10 @@ export class CarteComponent implements OnInit {
 
     const fireMarker = L.marker([position.lat, position.lng], {
       icon: L.icon({
-        iconUrl: 'assets/fire-icon.png',
+        iconUrl: 'assets/fire.gif',
         iconSize: [32, 32]
       })
     }).addTo(this.map);
-
-    fireMarker.bindPopup(`Incendie #${fireId}: Intensité ${intensity}`);
   }
 
   ngOnInit(): void {
