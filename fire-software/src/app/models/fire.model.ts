@@ -1,7 +1,7 @@
-export class Fire {
-  constructor(
-    public id: number,
-    public position: L.LatLng,
-    public intensity: number
-  ) {}
+export interface Fire {
+  id: number;
+  position: L.LatLng;
+  intensity: number;
+  size: number;
+  hp: number;
 }
