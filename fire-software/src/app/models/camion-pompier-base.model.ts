@@ -1,4 +1,4 @@
-export class RobotBase {
+export class CamionPompierBase {
   constructor(
     public id: number,
     public position: L.LatLng,
