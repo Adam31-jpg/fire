@@ -23,7 +23,7 @@ export class CarteComponent implements OnInit {
   simulationInterval: any;
   taille_feu: number = 16;
   TAILLE_FEU_MAX = 50;
-
+  private camionMarkers: Map<CamionPompierBase, L.Marker> = new Map();
   constructor(private zone: NgZone, private passService: PassService) {}
 
   ngOnInit(): void {
@@ -70,12 +70,15 @@ export class CarteComponent implements OnInit {
     initialPositions.forEach((position, index) => {
       const camion = new CamionPompierExtincteur(index, position, 1000);
       this.camions.push(camion);
-      L.marker([position.lat, position.lng], {
+
+      const camionMarker = L.marker([position.lat, position.lng], {
         icon: L.icon({
           iconUrl: 'assets/camion.gif',
           iconSize: [50, 50]
         })
       }).addTo(this.map).bindPopup(`Capacité d'eau: ${camion.waterCapacity}L`);
+
+      this.camionMarkers.set(camion, camionMarker);
     });
   }
 
@@ -134,11 +137,28 @@ export class CarteComponent implements OnInit {
         const routePolyline = L.polyline(latLngs, {
           color: 'red',
           weight: 5
-        });
-
-        routePolyline.addTo(this.map);
+        }).addTo(this.map);
 
         this.map.fitBounds(routePolyline.getBounds());
+
+        // Animation du camion
+        const camion = this.camions[0];
+        const camionMarker = this.camionMarkers.get(camion);
+
+        if (!camionMarker) {
+          console.error('Marqueur du camion non trouvé');
+          return;
+        }
+
+        let i = 0;
+        const interval = setInterval(() => {
+          if (i < latLngs.length) {
+            camionMarker.setLatLng(latLngs[i]);
+            i++;
+          } else {
+            clearInterval(interval);
+          }
+        }, 20); // Si bug d'animation changer la durée ici
       },
       error => {
         console.error('Erreur lors de la récupération de l\'itinéraire:', error);
