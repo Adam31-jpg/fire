@@ -3,6 +3,8 @@ import * as L from 'leaflet';
 import { CamionPompierBase } from "../../models/camion-pompier-base.model";
 import { CamionPompierExtincteur } from "../../models/camion-pompier-extincteur.model";
 import { Fire } from "../../models/fire.model";
+import {PassService} from "../../services/pass.service";
+
 
 @Component({
   selector: 'app-carte',
@@ -22,7 +24,7 @@ export class CarteComponent implements OnInit {
   taille_feu: number = 16;
   TAILLE_FEU_MAX = 50;
 
-  constructor(private zone: NgZone) {}
+  constructor(private zone: NgZone, private passService: PassService) {}
 
   ngOnInit(): void {
     this.initMap();
@@ -50,10 +52,6 @@ export class CarteComponent implements OnInit {
     this.fires = [];
   }
 
-  removeAllCamions(): void {
-    this.camions = [];
-  }
-
   initMap(): void {
     this.map = L.map('map', {
       center: [46.2276, 2.2137],
@@ -79,6 +77,10 @@ export class CarteComponent implements OnInit {
         })
       }).addTo(this.map).bindPopup(`Capacité d'eau: ${camion.waterCapacity}L`);
     });
+  }
+
+  removeAllCamions(): void {
+    this.camions = [];
   }
 
   increaseFireSize(): void {
@@ -121,5 +123,33 @@ export class CarteComponent implements OnInit {
 
   private isLand(position: L.LatLng): boolean {
     return true; // Implémenter la logique de vérification de la terre
+  }
+
+  drawRouteToFire(camionPosition: L.LatLng, firePosition: L.LatLng) {
+    this.passService.getRoute(camionPosition, firePosition).subscribe(
+      (routeData: any) => {
+        const coordinates = routeData.features[0].geometry.coordinates;
+        const latLngs = coordinates.map((coord: [number, number]) => L.latLng(coord[1], coord[0]));
+
+        const routePolyline = L.polyline(latLngs, {
+          color: 'red',
+          weight: 5
+        });
+
+        routePolyline.addTo(this.map);
+
+        this.map.fitBounds(routePolyline.getBounds());
+      },
+      error => {
+        console.error('Erreur lors de la récupération de l\'itinéraire:', error);
+      }
+    );
+  }
+
+  createRouteToulouseParis() {
+    const toulouse = new L.LatLng(43.6045, 1.444);
+    const paris = new L.LatLng(48.8566, 2.3522);
+
+    this.drawRouteToFire(toulouse, paris);
   }
 }
