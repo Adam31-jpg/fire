@@ -83,7 +83,7 @@ export class CarteComponent implements OnInit {
       // Mise à jour de la taille de la flamme
       const fireMarker = L.marker([fire.position.lat, fire.position.lng], {
         icon: L.icon({
-          iconUrl: 'assets/fire-icon.png',
+          iconUrl: 'assets/fire.gif',
           iconSize: [fire.size += 2, fire.size += 2] // Utiliser la taille spécifiée pour le marqueur
         })
       }).addTo(this.map);
@@ -104,7 +104,7 @@ export class CarteComponent implements OnInit {
     this.fires.push(newFire);
     const fireMarker = L.marker([position.lat, position.lng], {
       icon: L.icon({
-        iconUrl: 'assets/fire-icon.png',
+        iconUrl: 'assets/fire.gif',
         iconSize: [newFire.size, newFire.size]
       })
     }).addTo(this.map);
