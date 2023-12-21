@@ -166,9 +166,12 @@ export class CarteComponent implements OnInit {
     );
   }
 
-  createRouteToulouseParis() {
+  createRoute() {
     const toulouse = new L.LatLng(43.6045, 1.444);
     const paris = new L.LatLng(48.8566, 2.3522);
+    //const london = new L.LatLng(51.5074, -0.1278);
+    //const moscow = new L.LatLng(55.7558, 37.6173);
+    //const dubai = new L.LatLng(25.276987, 55.296249);
 
     this.drawRouteToFire(toulouse, paris);
   }
