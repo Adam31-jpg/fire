@@ -16,10 +16,10 @@ export class CarteComponent implements OnInit {
   camions: CamionPompierBase[] = [];
   private fires: Fire[] = [];
   chance_incendie = 1;
-  FRANCE_LAT_MIN = 47.0;
-  FRANCE_LAT_MAX = 48.0;
-  FRANCE_LNG_MIN = -4.0;
-  FRANCE_LNG_MAX = 2.0;
+  FRANCE_LAT_MIN = 43.0;
+  FRANCE_LAT_MAX = 49.0;
+  FRANCE_LNG_MIN = 0.0;
+  FRANCE_LNG_MAX = 5.0;
   simulationInterval: any;
   taille_feu: number = 16;
   TAILLE_FEU_MAX = 50;
@@ -98,8 +98,6 @@ export class CarteComponent implements OnInit {
       }).addTo(this.map).bindPopup(`Incendie #${fire.id}: Intensité ${fire.intensity}`);
     });
   }
-
-
 
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
@@ -208,7 +206,6 @@ export class CarteComponent implements OnInit {
     }).addTo(this.map).bindPopup(`Incendie #${newFire.id}: Intensité ${intensity}`);
     this.fireMarkers.set(newFire.id, fireMarker);
   }
-
 
   createRoute() {
     const toulouse = new L.LatLng(43.6045, 1.444);
