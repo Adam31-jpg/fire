@@ -99,22 +99,7 @@ export class CarteComponent implements OnInit {
     });
   }
 
-  private addFire(position: L.LatLng, intensity: number): void {
-    const newFire: Fire = {
-      id: this.fires.length + 1,
-      position: position,
-      intensity: intensity,
-      size: this.taille_feu,
-      hp: 10,
-    };
-    this.fires.push(newFire);
-    L.marker([position.lat, position.lng], {
-      icon: L.icon({
-        iconUrl: 'assets/fire.gif',
-        iconSize: [newFire.size, newFire.size]
-      })
-    }).addTo(this.map).bindPopup(`Incendie #${newFire.id}: Intensité ${intensity}`);
-  }
+
 
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
@@ -128,23 +113,25 @@ export class CarteComponent implements OnInit {
     return true; // Implémenter la logique de vérification de la terre
   }
 
+  private fireMarkers: Map<number, L.Marker> = new Map(); // Pour stocker les marqueurs de feu
+  private routePolylines: Map<number, L.Polyline> = new Map(); // Pour stocker les polylines des routes
+
   drawRouteToFire(camionPosition: L.LatLng, firePosition: L.LatLng) {
     this.passService.getRoute(camionPosition, firePosition).subscribe(
       (routeData: any) => {
         const coordinates = routeData.features[0].geometry.coordinates;
+        // Définition de latLngs à l'intérieur de cette fonction
         const latLngs = coordinates.map((coord: [number, number]) => L.latLng(coord[1], coord[0]));
-
-        const routePolyline = L.polyline(latLngs, {
-          color: 'red',
-          weight: 5
-        }).addTo(this.map);
-
+        const routePolyline = L.polyline(latLngs, { color: 'red', weight: 5 }).addTo(this.map);
         this.map.fitBounds(routePolyline.getBounds());
 
-        // Animation du camion
+        const fire = this.fires.find(f => f.position.equals(firePosition));
+        if (fire) {
+          this.routePolylines.set(fire.id, routePolyline);
+        }
+
         const camion = this.camions[0];
         const camionMarker = this.camionMarkers.get(camion);
-
         if (!camionMarker) {
           console.error('Marqueur du camion non trouvé');
           return;
@@ -157,8 +144,10 @@ export class CarteComponent implements OnInit {
             i++;
           } else {
             clearInterval(interval);
+            // Appel à extinguishFireAt ici après que le camion atteint le feu
+            this.extinguishFireAt(firePosition);
           }
-        }, 20); // Si bug d'animation changer la durée ici
+        }, 20);
       },
       error => {
         console.error('Erreur lors de la récupération de l\'itinéraire:', error);
@@ -166,13 +155,67 @@ export class CarteComponent implements OnInit {
     );
   }
 
+
+  private extinguishFireAt(firePosition: L.LatLng) {
+    const fireIndex = this.fires.findIndex(f => f.position.equals(firePosition));
+    if (fireIndex === -1) {
+      console.error('Feu non trouvé à cette position');
+      return;
+    }
+    const fire = this.fires[fireIndex];
+    const extinguishInterval = setInterval(() => {
+      console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`); // Log pour débogage
+      if (fire.intensity > 0) {
+        fire.intensity -= 20; // Ajustez selon la vitesse d'extinction désirée
+        fire.size = Math.max(fire.size - 4, 0); // Ajustez pour la visualisation si nécessaire
+      } else {
+        clearInterval(extinguishInterval);
+        console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`); // Confirmation dans la console
+        // Suppression du marqueur du feu
+        const fireMarker = this.fireMarkers.get(fire.id);
+        if (fireMarker) {
+          fireMarker.remove();
+          this.fireMarkers.delete(fire.id);
+        }
+        // Suppression de la route de la carte
+        const routePolyline = this.routePolylines.get(fire.id);
+        if (routePolyline) {
+          routePolyline.remove();
+          this.routePolylines.delete(fire.id);
+        }
+        // Supprimez le feu de la liste des feux actifs
+        this.fires.splice(fireIndex, 1);
+      }
+    }, 1000);
+  }
+
+
+  private addFire(position: L.LatLng, intensity: number): void {
+    // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
+    const newFire: Fire = {
+      id: this.fires.length + 1, // Assurez-vous que cet ID est unique
+      position: position,
+      intensity: intensity,
+      size: this.taille_feu,
+      hp: 10,
+    };
+    this.fires.push(newFire);
+    const fireMarker = L.marker([position.lat, position.lng], {
+      icon: L.icon({
+        iconUrl: 'assets/fire.gif',
+        iconSize: [newFire.size, newFire.size]
+      })
+    }).addTo(this.map).bindPopup(`Incendie #${newFire.id}: Intensité ${intensity}`);
+    this.fireMarkers.set(newFire.id, fireMarker);
+  }
+
+
   createRoute() {
     const toulouse = new L.LatLng(43.6045, 1.444);
     const paris = new L.LatLng(48.8566, 2.3522);
-    //const london = new L.LatLng(51.5074, -0.1278);
-    //const moscow = new L.LatLng(55.7558, 37.6173);
-    //const dubai = new L.LatLng(25.276987, 55.296249);
+    for (let i = 0; i < this.fires.length; i++) {
+      this.drawRouteToFire(toulouse,this.fires[i].position);
+    }
 
-    this.drawRouteToFire(toulouse, paris);
   }
 }
