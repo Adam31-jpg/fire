@@ -25,6 +25,7 @@ export class CarteComponent implements OnInit {
   TAILLE_FEU_MAX = 50;
   private camionMarkers: Map<CamionPompierBase, L.Marker> = new Map();
   constructor(private zone: NgZone, private passService: PassService) {}
+  private extinguishingFires: Set<number> = new Set();
 
   ngOnInit(): void {
     this.initMap();
@@ -44,6 +45,7 @@ export class CarteComponent implements OnInit {
     this.simulationInterval = setInterval(() => {
       this.increaseFireSize();
     }, 700);
+    this.createRoute();
   }
 
   stopSimulation(): void {
@@ -88,14 +90,18 @@ export class CarteComponent implements OnInit {
 
   increaseFireSize(): void {
     this.fires.forEach(fire => {
-      fire.intensity += 1;
-      fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
-      L.marker([fire.position.lat, fire.position.lng], {
-        icon: L.icon({
-          iconUrl: 'assets/fire.gif',
-          iconSize: [fire.size, fire.size]
-        })
-      }).addTo(this.map).bindPopup(`Incendie #${fire.id}: Intensité ${fire.intensity}`);
+      if (!fire.isBeingExtinguished) {
+        fire.intensity += 1;
+        fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
+
+        const fireMarker = this.fireMarkers.get(fire.id);
+        if (fireMarker) {
+          fireMarker.setIcon(L.icon({
+            iconUrl: 'assets/fire.gif',
+            iconSize: [fire.size, fire.size]
+          }));
+        }
+      }
     });
   }
 
@@ -111,8 +117,8 @@ export class CarteComponent implements OnInit {
     return true; // Implémenter la logique de vérification de la terre
   }
 
-  private fireMarkers: Map<number, L.Marker> = new Map(); // Pour stocker les marqueurs de feu
-  private routePolylines: Map<number, L.Polyline> = new Map(); // Pour stocker les polylines des routes
+  private fireMarkers: Map<number, L.Marker> = new Map();
+  private routePolylines: Map<number, L.Polyline> = new Map();
 
   drawRouteToFire(camionPosition: L.LatLng, firePosition: L.LatLng) {
     this.passService.getRoute(camionPosition, firePosition).subscribe(
@@ -149,6 +155,7 @@ export class CarteComponent implements OnInit {
               // Pas de feu à destination, supprime simplement la ligne
               routePolyline.remove();
             }
+
           }
         }, 20);
       },
@@ -157,7 +164,6 @@ export class CarteComponent implements OnInit {
       }
     );
   }
-
 
   private extinguishFireAt(firePosition: L.LatLng) {
     const fireIndex = this.fires.findIndex(f => f.position.equals(firePosition));
@@ -168,19 +174,27 @@ export class CarteComponent implements OnInit {
     const fire = this.fires[fireIndex];
     const camion = this.camions[0];
     const extinguishInterval = setInterval(() => {
-      console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`); // Log pour débogage
+      this.extinguishingFires.add(fire.id);
+      console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`);
       if (fire.intensity > 0) {
-        fire.intensity -= 20; // Ajustez selon la vitesse d'extinction désirée
-        fire.size = Math.max(fire.size - 4, 0); // Ajustez pour la visualisation si nécessaire
+        fire.intensity -= 20;
+        fire.size = Math.max(fire.size - 4, 0);
       } else {
+        fire.isBeingExtinguished = true;
         clearInterval(extinguishInterval);
-        console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`); // Confirmation dans la console
+        console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`);
+        this.extinguishingFires.delete(fire.id);
+
         // Suppression du marqueur du feu
         const fireMarker = this.fireMarkers.get(fire.id);
+
         if (fireMarker) {
           fireMarker.remove();
           this.fireMarkers.delete(fire.id);
+        } else {
+          console.error('Marqueur non trouvé pour l\'ID:', fire.id);
         }
+
         // Suppression de la route de la carte
         const routePolyline = this.routePolylines.get(fire.id);
         if (routePolyline) {
@@ -196,15 +210,15 @@ export class CarteComponent implements OnInit {
     }, 1000);
   }
 
-
   private addFire(position: L.LatLng, intensity: number): void {
     // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
     const newFire: Fire = {
-      id: this.fires.length + 1, // Assurez-vous que cet ID est unique
+      id: this.fires.length + 1,
       position: position,
       intensity: intensity,
       size: this.taille_feu,
       hp: 10,
+      isBeingExtinguished: false
     };
     this.fires.push(newFire);
     const fireMarker = L.marker([position.lat, position.lng], {
@@ -217,11 +231,21 @@ export class CarteComponent implements OnInit {
   }
 
   createRoute() {
-    const toulouse = new L.LatLng(43.6045, 1.444);
-    const paris = new L.LatLng(48.8566, 2.3522);
-    for (let i = 0; i < this.fires.length; i++) {
-      this.drawRouteToFire(toulouse,this.fires[i].position);
-    }
+    if (this.camions.length > 0) {
+      const camion = this.camions[0];
+      const camionMarker = this.camionMarkers.get(camion);
 
+      if (camionMarker) {
+        const camionPosition = camionMarker.getLatLng();
+
+        this.fires.forEach(fire => {
+          this.drawRouteToFire(camionPosition, fire.position);
+        });
+      } else {
+        console.error('Marqueur du camion non trouvé');
+      }
+    } else {
+      console.error('Aucun camion disponible pour tracer une route');
+    }
   }
 }
