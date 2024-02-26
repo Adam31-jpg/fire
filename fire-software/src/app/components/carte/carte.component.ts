@@ -25,6 +25,8 @@ export class CarteComponent implements OnInit {
   TAILLE_FEU_MAX = 50;
   private camionMarkers: Map<CamionPompierBase, L.Marker> = new Map();
   constructor(private zone: NgZone, private passService: PassService) {}
+  private extinguishingFires: Set<number> = new Set();
+
 
   ngOnInit(): void {
     this.initMap();
@@ -88,16 +90,21 @@ export class CarteComponent implements OnInit {
 
   increaseFireSize(): void {
     this.fires.forEach(fire => {
-      fire.intensity += 1;
-      fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
-      L.marker([fire.position.lat, fire.position.lng], {
-        icon: L.icon({
-          iconUrl: 'assets/fire.gif',
-          iconSize: [fire.size, fire.size]
-        })
-      }).addTo(this.map).bindPopup(`Incendie #${fire.id}: Intensité ${fire.intensity}`);
+      if (!fire.isBeingExtinguished) {
+        fire.intensity += 1;
+        fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
+
+        const fireMarker = this.fireMarkers.get(fire.id);
+        if (fireMarker) {
+          fireMarker.setIcon(L.icon({
+            iconUrl: 'assets/fire.gif',
+            iconSize: [fire.size, fire.size]
+          }));
+        }
+      }
     });
   }
+
 
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
@@ -111,8 +118,8 @@ export class CarteComponent implements OnInit {
     return true; // Implémenter la logique de vérification de la terre
   }
 
-  private fireMarkers: Map<number, L.Marker> = new Map(); // Pour stocker les marqueurs de feu
-  private routePolylines: Map<number, L.Polyline> = new Map(); // Pour stocker les polylines des routes
+  private fireMarkers: Map<number, L.Marker> = new Map();
+  private routePolylines: Map<number, L.Polyline> = new Map();
 
   drawRouteToFire(camionPosition: L.LatLng, firePosition: L.LatLng) {
     this.passService.getRoute(camionPosition, firePosition).subscribe(
@@ -162,19 +169,27 @@ export class CarteComponent implements OnInit {
     }
     const fire = this.fires[fireIndex];
     const extinguishInterval = setInterval(() => {
-      console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`); // Log pour débogage
+      this.extinguishingFires.add(fire.id);
+      console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`);
       if (fire.intensity > 0) {
-        fire.intensity -= 20; // Ajustez selon la vitesse d'extinction désirée
-        fire.size = Math.max(fire.size - 4, 0); // Ajustez pour la visualisation si nécessaire
+        fire.intensity -= 20;
+        fire.size = Math.max(fire.size - 4, 0);
       } else {
+        fire.isBeingExtinguished = true;
         clearInterval(extinguishInterval);
-        console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`); // Confirmation dans la console
+        console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`);
+        this.extinguishingFires.delete(fire.id);
+
         // Suppression du marqueur du feu
         const fireMarker = this.fireMarkers.get(fire.id);
+
         if (fireMarker) {
           fireMarker.remove();
           this.fireMarkers.delete(fire.id);
+        } else {
+          console.error('Marqueur non trouvé pour l\'ID:', fire.id);
         }
+
         // Suppression de la route de la carte
         const routePolyline = this.routePolylines.get(fire.id);
         if (routePolyline) {
@@ -191,11 +206,12 @@ export class CarteComponent implements OnInit {
   private addFire(position: L.LatLng, intensity: number): void {
     // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
     const newFire: Fire = {
-      id: this.fires.length + 1, // Assurez-vous que cet ID est unique
+      id: this.fires.length + 1,
       position: position,
       intensity: intensity,
       size: this.taille_feu,
       hp: 10,
+      isBeingExtinguished: false
     };
     this.fires.push(newFire);
     const fireMarker = L.marker([position.lat, position.lng], {

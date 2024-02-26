@@ -4,4 +4,5 @@ export interface Fire {
   intensity: number;
   size: number;
   hp: number;
+  isBeingExtinguished: boolean;
 }
