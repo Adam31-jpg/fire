@@ -27,7 +27,6 @@ export class CarteComponent implements OnInit {
   constructor(private zone: NgZone, private passService: PassService) {}
   private extinguishingFires: Set<number> = new Set();
 
-
   ngOnInit(): void {
     this.initMap();
     this.initCamionsPompiers();
@@ -46,6 +45,7 @@ export class CarteComponent implements OnInit {
     this.simulationInterval = setInterval(() => {
       this.increaseFireSize();
     }, 700);
+    this.createRoute();
   }
 
   stopSimulation(): void {
@@ -105,7 +105,6 @@ export class CarteComponent implements OnInit {
     });
   }
 
-
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
   }
@@ -149,7 +148,6 @@ export class CarteComponent implements OnInit {
             i++;
           } else {
             clearInterval(interval);
-            // Appel à extinguishFireAt ici après que le camion atteint le feu
             this.extinguishFireAt(firePosition);
           }
         }, 20);
@@ -159,7 +157,6 @@ export class CarteComponent implements OnInit {
       }
     );
   }
-
 
   private extinguishFireAt(firePosition: L.LatLng) {
     const fireIndex = this.fires.findIndex(f => f.position.equals(firePosition));
@@ -202,7 +199,6 @@ export class CarteComponent implements OnInit {
     }, 1000);
   }
 
-
   private addFire(position: L.LatLng, intensity: number): void {
     // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
     const newFire: Fire = {
@@ -224,11 +220,21 @@ export class CarteComponent implements OnInit {
   }
 
   createRoute() {
-    const toulouse = new L.LatLng(43.6045, 1.444);
-    const paris = new L.LatLng(48.8566, 2.3522);
-    for (let i = 0; i < this.fires.length; i++) {
-      this.drawRouteToFire(toulouse,this.fires[i].position);
-    }
+    if (this.camions.length > 0) {
+      const camion = this.camions[0];
+      const camionMarker = this.camionMarkers.get(camion);
 
+      if (camionMarker) {
+        const camionPosition = camionMarker.getLatLng();
+
+        this.fires.forEach(fire => {
+          this.drawRouteToFire(camionPosition, fire.position);
+        });
+      } else {
+        console.error('Marqueur du camion non trouvé');
+      }
+    } else {
+      console.error('Aucun camion disponible pour tracer une route');
+    }
   }
 }
