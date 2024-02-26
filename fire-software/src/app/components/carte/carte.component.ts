@@ -148,7 +148,14 @@ export class CarteComponent implements OnInit {
             i++;
           } else {
             clearInterval(interval);
-            this.extinguishFireAt(firePosition);
+            // Appel à extinguishFireAt ici après que le camion atteint le feu
+            if (fire) {
+              this.extinguishFireAt(firePosition);
+            } else {
+              // Pas de feu à destination, supprime simplement la ligne
+              routePolyline.remove();
+            }
+
           }
         }, 20);
       },
@@ -165,6 +172,7 @@ export class CarteComponent implements OnInit {
       return;
     }
     const fire = this.fires[fireIndex];
+    const camion = this.camions[0];
     const extinguishInterval = setInterval(() => {
       this.extinguishingFires.add(fire.id);
       console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`);
@@ -195,6 +203,9 @@ export class CarteComponent implements OnInit {
         }
         // Supprimez le feu de la liste des feux actifs
         this.fires.splice(fireIndex, 1);
+
+        // Dessiner l'itinéraire de retour vers le point de départ
+        this.drawRouteToFire(firePosition, camion.position);
       }
     }, 1000);
   }
