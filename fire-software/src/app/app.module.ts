@@ -6,12 +6,12 @@ import {AppComponent} from './app.component';
 import {CarteComponent} from './components/carte/carte.component';
 import {HttpClientModule} from "@angular/common/http";
 import {TruckComponent} from "./truck/truck.component";
+import { MapComponent } from './map/map.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    CarteComponent,
-    TruckComponent
+    MapComponent
   ],
   imports: [
     BrowserModule,
