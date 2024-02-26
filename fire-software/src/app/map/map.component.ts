@@ -64,44 +64,86 @@ export class MapComponent implements OnInit {
       })
     }).addTo(this.map).bindPopup(`Incendie: Intensité ${intensity}`);
 
-    this.dispatchTruckFromClosestStation(position);
+    this.dispatchTruckFromClosestStation(position, newFire);
   }
 
-  dispatchTruckFromClosestStation(firePosition: L.LatLng): void {
+  dispatchTruckFromClosestStation(firePosition: L.LatLng, fire: Fire): void {
     const closestStation = this.findClosestStation(firePosition);
     if (!closestStation || closestStation.trucks.length === 0) {
       console.log("Aucun camion disponible ou station trouvée.");
       return;
     }
 
-    const truckToSend = closestStation.trucks[0];
-    console.log("Camion envoyé depuis la station: ", closestStation.name)
+    if (closestStation.trucks.find(t => t.isAvailable) === undefined) {
+      console.log("Aucun camion disponible dans la station la plus proche.");
+      return;
+    }
 
-    const truckMarker = this.truckMarkers.get(truckToSend.id);
+    const truckToSend = closestStation.trucks.find(t => t.isAvailable);
+    truckToSend!.isAvailable = false;
+    console.log("Camion envoyé depuis la station: ", closestStation.name);
+
+    const truckMarker = this.truckMarkers.get(truckToSend!.id);
     if (truckMarker) {
-      this.animateTruckMovement(truckMarker, truckToSend.position, firePosition);
+      this.passService.getRoute(truckToSend!.position, firePosition).subscribe(routePoints => {
+        // Dessiner la route
+        this.drawRoute(truckToSend!.position, firePosition);
+
+        // Animer le camion le long de la route plus lentement et gérer l'extinction de l'incendie
+        this.animateTruckMovement(truckMarker, routePoints, truckToSend!, fire, closestStation);
+      });
     }
   }
 
-  animateTruckMovement(truckMarker: L.Marker, start: L.LatLng, end: L.LatLng): void {
-    const steps = 20;
-    const latStep = (end.lat - start.lat) / steps;
-    const lngStep = (end.lng - start.lng) / steps;
-
+  animateTruckMovement(truckMarker: L.Marker, routePoints: L.LatLng[], truck: Truck, fire: Fire, station: Station): void {
     let currentStep = 0;
     const move = () => {
-      if (currentStep <= steps) {
-        const nextLat = start.lat + latStep * currentStep;
-        const nextLng = start.lng + lngStep * currentStep;
-        truckMarker.setLatLng(new L.LatLng(nextLat, nextLng));
+      if (currentStep < routePoints.length) {
+        truckMarker.setLatLng(routePoints[currentStep]);
         currentStep++;
-        requestAnimationFrame(move);
+        setTimeout(move, 100); // Ajustez pour contrôler la vitesse
       } else {
         console.log('Camion arrivé à l\'incendie');
-        // Ici, vous pouvez gérer la logique une fois que le camion a atteint l'incendie
+        // Extinction de l'incendie
+        this.extinguishFire(fire);
+        // Retour du camion à sa station
+        this.passService.getRoute(routePoints[routePoints.length - 1], station.position).subscribe(returnRoute => {
+          // Dessiner la route de retour (optionnel)
+          this.drawRoute(routePoints[routePoints.length - 1], station.position);
+          // Animer le retour
+          this.animateTruckReturn(truckMarker, returnRoute, truck, station);
+        });
       }
     };
     move();
+  }
+
+  animateTruckReturn(truckMarker: L.Marker, returnRoute: L.LatLng[], truck: Truck, station: Station): void {
+    let currentStep = 0;
+    const moveBack = () => {
+      if (currentStep < returnRoute.length) {
+        truckMarker.setLatLng(returnRoute[currentStep]);
+        currentStep++;
+        setTimeout(moveBack, 50); // Ajustez pour contrôler la vitesse
+      } else {
+        console.log('Camion retourné à la station');
+        // Marquez le camion comme étant à nouveau disponible
+        truck.isAvailable = true;
+      }
+    };
+    moveBack();
+  }
+
+
+  extinguishFire(fire: Fire): void {
+    // Supposer que l'incendie est représenté sur la carte par un marqueur aussi
+    // Ici, vous pouvez supprimer le marqueur de l'incendie ou le mettre à jour
+    console.log(`Incendie ${fire.id} éteint`);
+    // Supprimez l'incendie de la liste des incendies actifs
+    const fireIndex = this.fires.findIndex(f => f.id === fire.id);
+    if (fireIndex !== -1) {
+      this.fires.splice(fireIndex, 1);
+    }
   }
 
   drawRoute(from: L.LatLng, to: L.LatLng): void {

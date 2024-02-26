@@ -3,6 +3,7 @@ export class Truck {
     public id: number,
     public name: string,
     public capacity: number,
-    public position: L.LatLng
+    public position: L.LatLng,
+    public isAvailable: boolean
   ) {}
 }
