@@ -99,8 +99,6 @@ export class CarteComponent implements OnInit {
     });
   }
 
-
-
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
   }
@@ -124,19 +122,16 @@ export class CarteComponent implements OnInit {
         const latLngs = coordinates.map((coord: [number, number]) => L.latLng(coord[1], coord[0]));
         const routePolyline = L.polyline(latLngs, { color: 'red', weight: 5 }).addTo(this.map);
         this.map.fitBounds(routePolyline.getBounds());
-
         const fire = this.fires.find(f => f.position.equals(firePosition));
         if (fire) {
           this.routePolylines.set(fire.id, routePolyline);
         }
-
         const camion = this.camions[0];
         const camionMarker = this.camionMarkers.get(camion);
         if (!camionMarker) {
           console.error('Marqueur du camion non trouvé');
           return;
         }
-
         let i = 0;
         const interval = setInterval(() => {
           if (i < latLngs.length) {
@@ -145,9 +140,9 @@ export class CarteComponent implements OnInit {
           } else {
             clearInterval(interval);
             // Appel à extinguishFireAt ici après que le camion atteint le feu
-            this.extinguishFireAt(firePosition);
+            this.extinguishFireAt(firePosition);            
           }
-        }, 20);
+        }, 1);
       },
       error => {
         console.error('Erreur lors de la récupération de l\'itinéraire:', error);
@@ -174,6 +169,7 @@ export class CarteComponent implements OnInit {
         // Suppression du marqueur du feu
         const fireMarker = this.fireMarkers.get(fire.id);
         if (fireMarker) {
+          console.log(fireMarker, 'fireMarker');
           fireMarker.remove();
           this.fireMarkers.delete(fire.id);
         }
@@ -189,8 +185,7 @@ export class CarteComponent implements OnInit {
     }, 1000);
   }
 
-
-  private addFire(position: L.LatLng, intensity: number): void {
+  private addFire(position: L.LatLng, intensity: number): void {    
     // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
     const newFire: Fire = {
       id: this.fires.length + 1, // Assurez-vous que cet ID est unique
@@ -209,13 +204,11 @@ export class CarteComponent implements OnInit {
     this.fireMarkers.set(newFire.id, fireMarker);
   }
 
-
   createRoute() {
     const toulouse = new L.LatLng(43.6045, 1.444);
     const paris = new L.LatLng(48.8566, 2.3522);
     for (let i = 0; i < this.fires.length; i++) {
       this.drawRouteToFire(toulouse,this.fires[i].position);
     }
-
   }
 }
