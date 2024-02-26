@@ -90,15 +90,27 @@ export class CarteComponent implements OnInit {
     this.fires.forEach(fire => {
       fire.intensity += 1;
       fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
-      L.marker([fire.position.lat, fire.position.lng], {
+  
+      // Vérifie s'il existe déjà un marqueur pour ce feu
+      const existingFireMarker = this.fireMarkers.get(fire.id);
+      if (existingFireMarker) {
+        // Si oui, supprimez-le de la carte
+        existingFireMarker.remove();
+      }
+  
+      // Créez un nouveau marqueur de feu avec la taille mise à jour
+      const newFireMarker = L.marker([fire.position.lat, fire.position.lng], {
         icon: L.icon({
           iconUrl: 'assets/fire.gif',
           iconSize: [fire.size, fire.size]
         })
       }).addTo(this.map).bindPopup(`Incendie #${fire.id}: Intensité ${fire.intensity}`);
+  
+      // Stockez le nouveau marqueur de feu dans la map des marqueurs de feu
+      this.fireMarkers.set(fire.id, newFireMarker);
     });
   }
-
+  
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
   }
@@ -151,6 +163,8 @@ export class CarteComponent implements OnInit {
   }
 
 
+  // Dans votre composant Angular
+
   private extinguishFireAt(firePosition: L.LatLng) {
     const fireIndex = this.fires.findIndex(f => f.position.equals(firePosition));
     if (fireIndex === -1) {
@@ -158,6 +172,13 @@ export class CarteComponent implements OnInit {
       return;
     }
     const fire = this.fires[fireIndex];
+    const fireMarker = L.marker([firePosition.lat, firePosition.lng], {
+      icon: L.icon({
+        iconUrl: 'assets/fire.gif',
+        iconSize: [fire.size, fire.size],
+        className: 'hidden-marker' // Ajoute la classe CSS pour masquer le marqueur
+      })
+    }).bindPopup(`Incendie #${fire.id}: Intensité ${fire.intensity}`); // Crée le marqueur de feu sans l'ajouter à la carte
     const extinguishInterval = setInterval(() => {
       console.log(`Tentative d'extinction, intensité actuelle : ${fire.intensity}`); // Log pour débogage
       if (fire.intensity > 0) {
@@ -166,13 +187,8 @@ export class CarteComponent implements OnInit {
       } else {
         clearInterval(extinguishInterval);
         console.log(`Feu éteint à la position : [${firePosition.lat}, ${firePosition.lng}]`); // Confirmation dans la console
-        // Suppression du marqueur du feu
-        const fireMarker = this.fireMarkers.get(fire.id);
-        if (fireMarker) {
-          console.log(fireMarker, 'fireMarker');
-          fireMarker.remove();
-          this.fireMarkers.delete(fire.id);
-        }
+        // Suppression du marqueur du feu de la carte
+        fireMarker.remove(); // Supprime le marqueur de feu de la carte
         // Suppression de la route de la carte
         const routePolyline = this.routePolylines.get(fire.id);
         if (routePolyline) {
@@ -184,6 +200,7 @@ export class CarteComponent implements OnInit {
       }
     }, 1000);
   }
+      
 
   private addFire(position: L.LatLng, intensity: number): void {    
     // Lors de l'ajout d'un nouveau feu, stockez également le marqueur dans `fireMarkers`
