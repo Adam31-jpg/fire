@@ -91,7 +91,7 @@ export class CarteComponent implements OnInit {
   increaseFireSize(): void {
     this.fires.forEach(fire => {
       if (!fire.isBeingExtinguished) {
-        fire.intensity += 1;
+        fire.intensity += 2;
         fire.size = Math.min(fire.size + 2, this.TAILLE_FEU_MAX);
 
         const fireMarker = this.fireMarkers.get(fire.id);
@@ -100,10 +100,14 @@ export class CarteComponent implements OnInit {
             iconUrl: 'assets/fire.gif',
             iconSize: [fire.size, fire.size]
           }));
+
+          // Mettez à jour le contenu du popup pour refléter la nouvelle intensité
+          fireMarker.setPopupContent(`Incendie #${fire.id}: Intensité ${fire.intensity}`);
         }
       }
     });
   }
+
 
   generateRandomCoordinate(min: number, max: number): number {
     return Math.random() * (max - min) + min;
