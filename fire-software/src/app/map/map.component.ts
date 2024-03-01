@@ -17,6 +17,9 @@ export class MapComponent implements OnInit {
   stations: Station[] = [];
   fires: Fire[] = [];
   private truckMarkers: Map<number, L.Marker> = new Map();
+  private fireMarkers: Map<number, L.Marker> = new Map();
+  private routePolylines: Map<number, L.Polyline> = new Map();
+
 
 
   constructor(private passService: PassService, private stationService: StationService) {}
@@ -28,7 +31,6 @@ export class MapComponent implements OnInit {
   }
 
   private initStationsAndTrucks(): void {
-    // Initialisation des stations et des camions...
     this.stations.forEach(station => {
       station.trucks.forEach(truck => {
         const marker = L.marker([truck.position.lat, truck.position.lng], {
@@ -37,7 +39,7 @@ export class MapComponent implements OnInit {
             iconSize: [50, 50]
           })
         }).addTo(this.map);
-        this.truckMarkers.set(truck.id, marker); // Stocke le marqueur avec l'ID du camion comme clé
+        this.truckMarkers.set(truck.id, marker);
       });
     });
   }
@@ -57,12 +59,14 @@ export class MapComponent implements OnInit {
     const newFire = new Fire(this.fires.length + 1, position, intensity, 1, 100);
     this.fires.push(newFire);
 
-    L.marker([lat, lng], {
+    const marker = L.marker([lat, lng], {
       icon: L.icon({
         iconUrl: 'assets/fire.gif',
         iconSize: [50, 50]
       })
     }).addTo(this.map).bindPopup(`Incendie: Intensité ${intensity}`);
+
+    this.fireMarkers.set(newFire.id, marker);
 
     this.dispatchTruckFromClosestStation(position, newFire);
   }
@@ -87,7 +91,7 @@ export class MapComponent implements OnInit {
     if (truckMarker) {
       this.passService.getRoute(truckToSend!.position, firePosition).subscribe(routePoints => {
         // Dessiner la route
-        this.drawRoute(truckToSend!.position, firePosition);
+        this.drawRoute(truckToSend!.position, firePosition, truckToSend!.id);
 
         // Animer le camion le long de la route plus lentement et gérer l'extinction de l'incendie
         this.animateTruckMovement(truckMarker, routePoints, truckToSend!, fire, closestStation);
@@ -101,16 +105,17 @@ export class MapComponent implements OnInit {
       if (currentStep < routePoints.length) {
         truckMarker.setLatLng(routePoints[currentStep]);
         currentStep++;
-        setTimeout(move, 100); // Ajustez pour contrôler la vitesse
+        setTimeout(move, 10);
       } else {
         console.log('Camion arrivé à l\'incendie');
-        // Extinction de l'incendie
         this.extinguishFire(fire);
-        // Retour du camion à sa station
         this.passService.getRoute(routePoints[routePoints.length - 1], station.position).subscribe(returnRoute => {
-          // Dessiner la route de retour (optionnel)
-          this.drawRoute(routePoints[routePoints.length - 1], station.position);
-          // Animer le retour
+          this.drawRoute(routePoints[routePoints.length - 1], station.position, truck.id);
+          const polyline = this.routePolylines.get(truck.id);
+          if (polyline) {
+            polyline.remove(); // Enlevez la polyligne de la carte
+            this.routePolylines.delete(truck.id); // Supprimez la référence
+          }
           this.animateTruckReturn(truckMarker, returnRoute, truck, station);
         });
       }
@@ -124,10 +129,15 @@ export class MapComponent implements OnInit {
       if (currentStep < returnRoute.length) {
         truckMarker.setLatLng(returnRoute[currentStep]);
         currentStep++;
-        setTimeout(moveBack, 50); // Ajustez pour contrôler la vitesse
+        setTimeout(moveBack, 10);
       } else {
         console.log('Camion retourné à la station');
-        // Marquez le camion comme étant à nouveau disponible
+
+        const polyline = this.routePolylines.get(truck.id);
+        if (polyline) {
+          polyline.remove(); // Enlevez la polyligne de la carte
+          this.routePolylines.delete(truck.id); // Supprimez la référence
+        }
         truck.isAvailable = true;
       }
     };
@@ -136,20 +146,39 @@ export class MapComponent implements OnInit {
 
 
   extinguishFire(fire: Fire): void {
-    // Supposer que l'incendie est représenté sur la carte par un marqueur aussi
-    // Ici, vous pouvez supprimer le marqueur de l'incendie ou le mettre à jour
-    console.log(`Incendie ${fire.id} éteint`);
-    // Supprimez l'incendie de la liste des incendies actifs
-    const fireIndex = this.fires.findIndex(f => f.id === fire.id);
-    if (fireIndex !== -1) {
-      this.fires.splice(fireIndex, 1);
+    console.log(`Extinction de l'incendie ${fire.id}`);
+    const fireMarker = this.fireMarkers.get(fire.id);
+    if (fireMarker) {
+      let size = 50; // Taille initiale, ajustez selon votre configuration actuelle
+      const shrink = () => {
+        if (size > 0) {
+          size -= 5; // Réduction progressive
+          fireMarker.setIcon(L.icon({
+            iconUrl: 'assets/fire.gif',
+            iconSize: [size, size]
+          }));
+          setTimeout(shrink, 100); // Répétez jusqu'à disparition
+        } else {
+          fireMarker.remove(); // Enlevez le marqueur de la carte
+          this.fireMarkers.delete(fire.id); // Retirez le marqueur de la collection
+        }
+      };
+      shrink();
+
+      // Supprimez l'incendie de la liste des incendies actifs
+      const fireIndex = this.fires.findIndex(f => f.id === fire.id);
+      if (fireIndex !== -1) {
+        this.fires.splice(fireIndex, 1);
+      }
     }
   }
 
-  drawRoute(from: L.LatLng, to: L.LatLng): void {
+
+  drawRoute(from: L.LatLng, to: L.LatLng, truckId: number): void {
     this.passService.getRoute(from, to).subscribe(routePoints => {
       const polyline = L.polyline(routePoints, { color: 'blue' }).addTo(this.map);
       this.map.fitBounds(polyline.getBounds());
+      this.routePolylines.set(truckId, polyline); // Stockez la référence à la polyligne
     });
   }
 
